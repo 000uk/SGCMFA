@@ -41,6 +41,9 @@ class VideoDataset(Dataset):
 
     def __len__(self):
         return len(self.video_paths)
+    
+    def get_label(self, idx):
+        return self.labels[idx]
 
     # 프레임 경로 가져오기
     def _get_frame_paths(self, idx):

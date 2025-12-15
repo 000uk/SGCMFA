@@ -8,7 +8,6 @@ class SGCMFATrainer:
         self.train_loader = train_loader
         self.criterion = criterion
         self.optimizer = optimizer
-        self.optimizer = optimizer
         self.scheduler = scheduler
         self.device = device
 
@@ -18,15 +17,16 @@ class SGCMFATrainer:
         total = 0
         correct = 0
 
-        # for inputs, targets in tqdm(self.train_loader, desc = f"Epoch: {epoch+1}"):
-        #     inputs = inputs.to(self.device)
-        #     targets = targets.to(self.device)
-            
-        #     self.optimizer.zero_grad()
-        #     outputs = self.model(inputs)
-        for x_rgb, x_skel, targets in tqdm(self.train_loader, desc = f"[Epoch: {epoch + 1}]"):
-            x_rgb = x_rgb.to(self.device)
-            x_skel = x_skel.to(self.device)
+        for batch in tqdm(self.train_loader, desc=f"[Epoch: {epoch + 1}]"):
+            x_rgb = batch.get("rgb")
+            x_skel = batch.get("skel")
+            targets = batch["label"]
+
+            if x_rgb is not None:
+                x_rgb = x_rgb.to(self.device)
+            if x_skel is not None:
+                x_skel = x_skel.to(self.device)
+
             targets = targets.to(self.device)
         
             self.optimizer.zero_grad()
@@ -55,14 +55,16 @@ class SGCMFATrainer:
         all_preds, all_labels = [], []
 
         with torch.no_grad():
-            # for inputs, targets in valid_loader:
-            #     inputs = inputs.to(self.device)
-            #     targets = targets.to(self.device)
-            
-            #     outputs = self.model(inputs)
-            for x_rgb, x_skel, targets in valid_loader:
-                x_rgb = x_rgb.to(self.device)
-                x_skel = x_skel.to(self.device)
+            for batch in valid_loader:
+                x_rgb = batch.get("rgb")
+                x_skel = batch.get("skel")
+                targets = batch["label"]
+
+                if x_rgb is not None:
+                    x_rgb = x_rgb.to(self.device)
+                if x_skel is not None:
+                    x_skel = x_skel.to(self.device)
+
                 targets = targets.to(self.device)
                 
                 outputs = self.model(x_rgb, x_skel)

@@ -1,7 +1,6 @@
 import torch.nn as nn
 import torch.nn.functional as F
-from .layers.graph_layers import GraphConv, Graph
-from .layers.attn_layer import CoordAtt, TemporalAttention
+from .layers.graph_layers import Graph, TemporalAttention, ST_GCN_Block
 
 # Spatial(공간) → Temporal(시간) → Attention(중요도 필터링) → Residual(정보 보존)
 """
@@ -12,49 +11,6 @@ x = self.attention(x) (핵심!):
 **"배경 노이즈나 쓸데없는 흔들림(Doing_Other_Things)"**과 관련된 채널은 억제합니다.
 F.relu(x + res): 필터링된 정보에 원본 정보를 더해서(Residual) 다음 층으로 넘깁니다
 """
-class ST_GCN_Block(nn.Module):
-    def __init__(self, in_channels, out_channels, A, stride=1):
-        super(ST_GCN_Block, self).__init__()
-
-        # Spatial Graph Conv
-        self.gcn = GraphConv(in_channels, out_channels, A)
-
-        # Temporal Conv (시간축으로 1D Conv)
-        # kernel_size=(9, 1): 시간축으로 9프레임을 봄
-        self.tcn = nn.Sequential(
-            nn.BatchNorm2d(out_channels),
-            nn.ReLU(),
-            nn.Conv2d(
-                out_channels,
-                out_channels,
-                (9, 1), # (Time, Node) -> Node는 섞지 않고 시간만 봄
-                padding=(4, 0),
-                stride=(stride, 1)
-            ),
-            nn.BatchNorm2d(out_channels),
-            nn.Dropout(0.5, inplace=True) # 과적합 방지
-        )
-        
-        # Coordinate Attention 적용 (Spatial)
-        self.attention = CoordAtt(out_channels) 
-
-        # Residual Connection (ResNet처럼 입력 더하기)
-        if in_channels != out_channels or stride != 1:
-            self.residual = nn.Sequential(
-                nn.Conv2d(in_channels, out_channels, kernel_size=1, stride=(stride, 1)),
-                nn.BatchNorm2d(out_channels),
-            )
-        else:
-            self.residual = nn.Identity()
-
-    def forward(self, x):
-        res = self.residual(x)
-        x = self.gcn(x) # 공간
-        x = self.tcn(x) # 시간
-        x = self.attention(x) # Attention
-        return F.relu(x + res)
-
-
 class STGCN_Model(nn.Module):
     def __init__(self, num_classes=3, in_channels=3, num_frames=30):
         super(STGCN_Model, self).__init__()
