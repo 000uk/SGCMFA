@@ -1,19 +1,16 @@
-exp_name: stgcn_baseline + norm
-seed: 42
-
 data:
   csv_path: data/meta.csv
   data_dir: data
-
+exp_name: stgcn_baseline
 model:
-  in_channels: 3
-  hidden_dim: 64
-  num_layers: 3
   dropout: 0.5
-
+  hidden_dim: 64
+  in_channels: 3
+  num_layers: 3
+seed: 42
 train:
-  epochs: 10
   batch_size: 32
+  epochs: 50
   lr: 0.001
-  weight_decay: 0.0001
   warmup_ratio: 0.1
+  weight_decay: 0.0001

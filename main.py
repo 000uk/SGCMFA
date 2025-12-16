@@ -11,7 +11,7 @@ from transformers import get_cosine_schedule_with_warmup
 
 # 사용자 정의 모듈 임포트 (경로에 맞게 수정)
 from src.utils import set_seed
-from src.models.sgcmfa import STGCN_Model
+from src.models.sgcmfa import SGCMFA_Net
 from src.dataloader import get_loader
 from src.trainer import SGCMFATrainer
 
@@ -37,7 +37,7 @@ def main(args):
     # num_frames = int(df["frames"].iloc[0])
 
     print("🤖 Initializing Model...")
-    model = STGCN_Model(
+    model = SGCMFA_Net(
         num_classes=num_classes,
     ).to(device)
 
