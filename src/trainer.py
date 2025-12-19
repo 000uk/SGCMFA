@@ -2,7 +2,7 @@ from tqdm import tqdm
 import torch
 from sklearn.metrics import f1_score, confusion_matrix
 
-class SGCMFATrainer:
+class SGTrainer:
     def __init__(self, model, train_loader, criterion, optimizer, scheduler, device):
         self.model = model
         self.train_loader = train_loader
@@ -30,7 +30,7 @@ class SGCMFATrainer:
             targets = targets.to(self.device)
         
             self.optimizer.zero_grad()
-            outputs = self.model(x_rgb, x_skel)
+            outputs, _ = self.model(x_rgb, x_skel)
 
             loss = self.criterion(outputs, targets)
             loss.backward()
@@ -67,7 +67,8 @@ class SGCMFATrainer:
 
                 targets = targets.to(self.device)
                 
-                outputs = self.model(x_rgb, x_skel)
+                # outputs = self.model(x_rgb, x_skel)
+                outputs, attn_map = self.model(x_rgb, x_skel)
                 loss = self.criterion(outputs, targets)
                 val_loss += loss.item()
 
@@ -85,4 +86,4 @@ class SGCMFATrainer:
         f1_macro = f1_score(all_labels, all_preds, average="macro")
         cm = confusion_matrix(all_labels, all_preds)
 
-        return val_acc, val_loss, f1_macro, cm
+        return val_acc, val_loss, f1_macro, cm, attn_map
