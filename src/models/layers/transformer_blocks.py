@@ -51,18 +51,21 @@ class DualFusionLayer(nn.Module):
         # 1. Skeleton 참조 (Pre-LN 적용)
         q = self.norm1(query)
         # query가 skeleton을 보며 내 관절 위치가 여기구나!!!!!! 파악함
-        feat_skel, _ = self.cross_attn_skel(q, key_skel, val_skel)
+        # feat_skel, _ = self.cross_attn_skel(q, key_skel, val_skel)
+        feat_skel, attn_skel = self.cross_attn_skel(q, key_skel, val_skel) # attn_skel 추출
         query = query + feat_skel # Residual
         
         # 2. Self Attention
         q = self.norm2(query)
-        feat_self, _ = self.self_attn(q, q, q)
+        # feat_self, _ = self.self_attn(q, q, q)
+        feat_self, attn_self = self.self_attn(q, q, q) # attn_self 추출
         query = query + feat_self
         
         # 3. RGB 참조
         q = self.norm3(query)
         # 위치를 파악한 query가 RGB 텍스처를 보며 헐 손 모양이 이렇네~~ 파악
-        feat_rgb, _ = self.cross_attn_rgb(q, key_rgb, val_rgb)
+        # feat_rgb, _ = self.cross_attn_rgb(q, key_rgb, val_rgb)
+        feat_rgb, attn_rgb = self.cross_attn_rgb(q, key_rgb, val_rgb) # attn_rgb 추출
         query = query + feat_rgb
         
         # 4. FFN
@@ -70,7 +73,7 @@ class DualFusionLayer(nn.Module):
         ffn_out = self.linear2(self.dropout(self.activation(self.linear1(q))))
         query = query + ffn_out
         
-        return query
+        return query, (attn_skel, attn_self, attn_rgb)
 
 class DualFusionTransformer(nn.Module):
     def __init__(self, d_model=128, num_queries=21, nhead=4, num_layers=2):
@@ -112,10 +115,10 @@ class DualFusionTransformer(nn.Module):
         # Transformer 통과
         for layer in self.layers:
             # Query가 Skeleton을 Key/Value로 참조하고, 그 다음 RGB를 Key/Value로 참조
-            query = layer(query, feat_skel, feat_skel, feat_rgb, feat_rgb)
+            query, attn_map = layer(query, feat_skel, feat_skel, feat_rgb, feat_rgb)
             
         # 원래 형태로 복원: (B*T, V, C) -> (B, T, V, C) -> (B, C, T, V)
         out = query.view(B, T, V, C).permute(0, 3, 1, 2).contiguous()
         
         # Residual Connection (원본 스켈레톤 특징 더해주기)
-        return out + skel_feat
+        return out + skel_feat, attn_map
