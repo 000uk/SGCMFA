@@ -1,36 +1,9 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from .layers.graph_layers import Graph, TemporalAttention, ST_GCN_Block
-from .layers.transformer_blocks import CMFA_Fusion, DualFusionTransformer
-from torchvision.models import mobilenet_v3_small
-
-class RGB_Encoder(nn.Module): # ★ 2D CNN (MobileNet)
-    def __init__(self):
-        super(RGB_Encoder, self).__init__()
-        self.backbone = mobilenet_v3_small(pretrained=True).features
-        self.conv_project = nn.Conv2d(576, 128, kernel_size=1) 
-
-    def forward(self, x):
-        B, C, T, H, W = x.shape
-        x = x.permute(0, 2, 1, 3, 4).contiguous().view(B * T, C, H, W)
-        x = self.backbone(x)     # (B*T, 576, 7, 7)
-        x = self.conv_project(x) # (B*T, 128, 7, 7)
-        _, C_new, H_new, W_new = x.shape
-        x = x.view(B, T, C_new, H_new, W_new).permute(0, 2, 1, 3, 4) 
-        return x # (B, 128, T, 7, 7)
-
-class Skeleton_Encoder(nn.Module): # ★ ST-GCN Part
-    def __init__(self, in_channels, out_channels, A):
-        super(Skeleton_Encoder, self).__init__()
-        self.gcn_networks = nn.Sequential(
-            ST_GCN_Block(in_channels, 64, A),
-            ST_GCN_Block(64, 64, A),
-            ST_GCN_Block(64, 128, A) # 128채널로 맞춰줌
-        )
-    def forward(self, x):
-        for gcn in self.gcn_networks: x = gcn(x)
-        return x
+from .layers.graphs import Graph, TemporalAttention, ST_GCN_Block
+from .layers.transformers import DualFusionTransformer
+from .layers.encoders import RGB_Encoder, Skeleton_Encoder
 
 class SGCH_Net(nn.Module):
     def __init__(self, num_classes=5):

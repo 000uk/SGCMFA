@@ -1,6 +1,6 @@
 import torch.nn as nn
 import torch.nn.functional as F
-from .layers.graph_layers import Graph, TemporalAttention, ST_GCN_Block
+from .layers.graphs import Graph, TemporalAttention, ST_GCN_Block
 
 # Spatial(공간) → Temporal(시간) → Attention(중요도 필터링) → Residual(정보 보존)
 """
