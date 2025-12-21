@@ -1,19 +1,12 @@
 ## SGCH-Net: Skeleton-Guided Cascaded Hierarchical Network
 <img width="932" height="246" alt="image" src="https://github.com/user-attachments/assets/3ab28105-f550-4c3f-8c3e-8c30b2946228" />
 
-본 프로젝트는 합성 데이터 증강과 Query-Based Dual-Stream Transformer를 결합하여,  
-조명·배경·사용자 변화에 강건한 핸드 제스처 인식 모델을 제안한다.
+본 프로젝트는 합성 데이터 증강과 Query-Based Dual-Stream Transformer를 결합하여 조명, 배경, 사용자 변화에 강건한 핸드 제스처 인식 모델을 제안한다.
 
 ### Motivation
-핸드 제스처 인식은 환경 변화에 민감하며,  
-대규모 실제 데이터 수집이 어렵다는 한계를 가진다.
-
-합성 데이터는 데이터 부족을 완화할 수 있지만,  
-RGB 단일 모달리티 모델은 도메인 격차와 배경 노이즈로 인해  
-일반화 성능이 쉽게 붕괴된다.
-
-이에 손의 구조(Skeleton)를 먼저 파악하고, 이를 단서로 시각 정보(RGB)를 능동적으로 찾는 
-인간의 인지 과정을 모방한 계층적 퓨전 네트워크를 제안한다.
+핸드 제스처 인식은 환경 변화에 민감하며, 대규모 실제 데이터 수집이 어렵다는 한계를 가진다.
+합성 데이터는 데이터 부족을 완화할 수 있지만 RGB 단일 모달리티 모델은 도메인 격차와 배경 노이즈로 인해 일반화 성능이 쉽게 붕괴된다.
+이에 손의 구조(Skeleton)를 먼저 파악하고, 이를 단서로 시각 정보(RGB)를 능동적으로 찾는 인간의 인지 과정을 모방한 계층적 퓨전 네트워크를 제안한다.
 
 ### Core Contributions
 - 3D 합성 데이터 기반 대규모 증강 파이프라인 구축
