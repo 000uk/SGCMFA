@@ -34,6 +34,7 @@ class SGTrainer:
 
             loss = self.criterion(outputs, targets)
             loss.backward()
+            torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
             self.optimizer.step()
             self.scheduler.step()
 
@@ -68,7 +69,7 @@ class SGTrainer:
                 targets = targets.to(self.device)
                 
                 # outputs = self.model(x_rgb, x_skel)
-                outputs, attn_map = self.model(x_rgb, x_skel)
+                outputs, attn_maps = self.model(x_rgb, x_skel)
                 loss = self.criterion(outputs, targets)
                 val_loss += loss.item()
 
@@ -86,4 +87,4 @@ class SGTrainer:
         f1_macro = f1_score(all_labels, all_preds, average="macro")
         cm = confusion_matrix(all_labels, all_preds)
 
-        return val_acc, val_loss, f1_macro, cm, attn_map
+        return val_acc, val_loss, f1_macro, cm, attn_maps
