@@ -1,13 +1,14 @@
 import torch
 import torch.nn as nn
-from torchvision.models import mobilenet_v3_small
+from torchvision.models import mobilenet_v3_small, MobileNet_V3_Small_Weights
 from .graphs import ST_GCN_Block
-from .attentions import HybridAttentionLayer
+from .attentions import GraphAwareAttention
 
-class RGB_Encoder(nn.Module): # ★ 2D CNN (MobileNet)
+class RGB_Encoder(nn.Module):
     def __init__(self):
-        super(RGB_Encoder, self).__init__()
-        self.backbone = mobilenet_v3_small(pretrained=True).features
+        super().__init__()
+        weights = MobileNet_V3_Small_Weights.DEFAULT
+        self.backbone = mobilenet_v3_small(weights=weights).features
         self.conv_project = nn.Conv2d(576, 128, kernel_size=1) 
 
     def forward(self, x):
@@ -35,11 +36,11 @@ class Skeleton_Encoder(nn.Module):
         super().__init__()
         # A는 (21, 21) 형태의 인접 행렬
         self.joint_encoder = LearnedJointEncoding(d_model)
-        self.hybrid_attn = HybridAttentionLayer(d_model, nhead=4)
-        
-        # [수정] zeros가 아니라 실제 그래프 구조 A로 초기화!
+
+        # zeros가 아니라 실제 그래프 구조 A로 초기화!
         # 아주 작은 값(1e-4)이라도 줘서 연결된 곳에 특혜를 주자.
         self.graph_bias = nn.Parameter(A.clone().float()) 
+        self.hybrid_attn = GraphAwareAttention(d_model, nhead=4)
 
         self.stgcn1 = ST_GCN_Block(d_model, d_model, A)
         self.stgcn2 = ST_GCN_Block(d_model, d_model, A)

@@ -30,35 +30,41 @@ class CoordAtt(nn.Module):
         a_h = self.conv_h(x_h).sigmoid()
         a_w = self.conv_w(x_w).sigmoid()
         return x * a_h * a_w
-    
+        
 class TemporalAttention(nn.Module):
-    def __init__(self, channel, t_dim=30): # t_dim: 사용하는 프레임 수
-        super(TemporalAttention, self).__init__()
-        # (N, C, T, V) -> (N, 1, T, 1) : 시간 축만 살리고 다 압축
-        self.avg_pool = nn.AdaptiveAvgPool2d((t_dim, 1))
-
-        # 각 프레임의 중요도를 0~1 사이 점수로 매김
-        self.fc = nn.Sequential(
-            nn.Conv2d(channel, channel // 8, kernel_size=1, bias=False),
+    def __init__(self, d_model, nhead=4, dropout=0.1):
+        super().__init__()
+        # 시간 축을 따라 어텐션을 수행 (Sequence Length = T)
+        self.attn = nn.MultiheadAttention(d_model, nhead, dropout=dropout, batch_first=True)
+        self.norm = nn.LayerNorm(d_model)
+        self.ffn = nn.Sequential(
+            nn.Linear(d_model, d_model * 4),
             nn.ReLU(),
-            nn.Conv2d(channel // 8, 1, kernel_size=1, bias=False), # 채널을 1개로 (점수판)
-            nn.Sigmoid()
+            nn.Linear(d_model * 4, d_model)
         )
+        self.norm2 = nn.LayerNorm(d_model)
 
     def forward(self, x):
-        # x: (N, C, T, V)
-        b, c, t, v = x.size()
+        # x input: (B, C, T, V)
+        B, C, T, V = x.shape
+        
+        # 시간 축 어텐션을 위해 차원 변경: (B*V, T, C)
+        # 즉, 각 관절(V)마다 시간(T) 흐름을 따로 보겠다는 뜻!
+        x = x.permute(0, 3, 2, 1).contiguous().view(B * V, T, C)
+        
+        # 1) Self-Attention on Time
+        attn_out, _ = self.attn(x, x, x) #  t=1일 때의 손 모양과 t=10일 때의 손 모양이 어떤 상관관계가 있는지 계산
+        x = self.norm(x + attn_out)
+        
+        # 2) Feed Forward
+        ffn_out = self.ffn(x)
+        x = self.norm2(x + ffn_out)
+        
+        # 다시 원래대로: (B, C, T, V)
+        x = x.view(B, V, T, C).permute(0, 3, 2, 1).contiguous()
+        return x
 
-        # 1. 전체 노드에 대해 평균을 내서 "이 시간대의 대표 값"을 뽑음
-        y = F.avg_pool2d(x, (1, v)) # (N, C, T, 1)
-
-        # 2. 어떤 시간이 중요한지 점수 계산
-        score = self.fc(y) # (N, 1, T, 1) - 각 프레임 별 점수 (0~1)
-
-        # 3. 중요도 곱하기 (중요한 프레임은 살리고, 잡음 프레임은 죽임)
-        return x * score
-
-class HybridAttentionLayer(nn.Module):
+class GraphAwareAttention(nn.Module):
     def __init__(self, d_model=128, nhead=4, dropout=0.1):
         super().__init__()
         self.nhead = nhead
@@ -74,24 +80,29 @@ class HybridAttentionLayer(nn.Module):
         """
         B_T, V, C = q.shape
         
-        # 1. Linear Projection
+        # Linear Projection
         query = self.q_proj(q) # (B*T, V, C)
         key = self.k_proj(k)
         value = self.v_proj(v)
         
-        # 2. Multi-head split (B*T, nhead, V, head_dim)
+        # Multi-head split (B*T, nhead, V, head_dim)
         query = query.view(B_T, V, self.nhead, C // self.nhead).transpose(1, 2)
         key = key.view(B_T, V, self.nhead, C // self.nhead).transpose(1, 2)
         value = value.view(B_T, V, self.nhead, C // self.nhead).transpose(1, 2)
         
-        # 3. Scaled Dot-Product Attention
+        # Scaled Dot-Product Attention
         scaling = (C // self.nhead) ** -0.5
         attn_score = torch.matmul(query, key.transpose(-2, -1)) * scaling
         
-        # 4. [핵심] Graph Bias 주입
+        # 핵심!!!!! Graph Bias 주입
         if graph_bias is not None:
-            # graph_bias를 (1, 1, V, V)로 만들어서 모든 배치/헤드에 더해줌
-            attn_score = attn_score + graph_bias.unsqueeze(0).unsqueeze(0)
+            # # graph_bias를 (1, 1, V, V)로 만들어서 모든 배치/헤드에 더해줌
+            # attn_score = attn_score + graph_bias.unsqueeze(0).unsqueeze(0)
+            # bias가 너무 지배적이지 않도록 learnable parameter나 작은 상수를 곱함
+            # 초기값으로 아주 작은 값을 설정해 서서히 학습되게 합니다.
+            if not hasattr(self, 'graph_alpha'):
+                self.graph_alpha = nn.Parameter(torch.tensor(0.01, device=q.device))
+            attn_score = attn_score + (self.graph_alpha * graph_bias.unsqueeze(0).unsqueeze(0))
             
         attn_prob = F.softmax(attn_score, dim=-1)
         attn_prob = self.dropout(attn_prob)
